@@ -1,1 +1,4 @@
 new ideas
+- new html file
+- new js file
+- folder for all the data

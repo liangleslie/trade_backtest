@@ -23,3 +23,18 @@ for (var ticker of data_tickers) {
             }
         );
 }
+
+function ydata_to_series(y_data) {
+	var series = {};
+	for (var i = 0; i < y_data['chart']['result'][0]['timestamp'].length; i++) {
+		date = new Date(y_data['chart']['result'][0]['timestamp'][i]*1000);
+		series[date] = // implement loop for high low open close
+	}
+	return series;
+};
+
+function series(data) {
+	this.first_date = Object.keys(data).shift();
+	this.data = data;
+	var type;
+}

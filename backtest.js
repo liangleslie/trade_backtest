@@ -4,8 +4,8 @@ Variables defined here
 var bench_ticker = "SPY";
 var data_tickers = ["QQQ","IJJ","SPY"];
 const cors_proxy = "https://cors-anywhere.herokuapp.com/";
-var quotes = []
-
+const ctx = document.getElementById('myChart').getContext('2d');
+var chartStartDate = new Date("1/1/2001")
 
 /*
 functions defined here
@@ -28,54 +28,31 @@ function ydata_to_series(y_data) {
 	return series;
 };
 
-function series(data) {
-	this.dates = [Object.keys(data)][0]; // turn data keys into dates array
-	this.dates = this.dates.map(x => new Date(x)); //convert elements in dates array into DateTime objects
+function series(dates,dataObject) {
+	this.dates = dates;
 	this.first_date = Math.min(... this.dates);
-	this.data = data;
-	this.createChartData = function(property, data = this.data, dates = this.dates) { // property refers to a key for each element of data object
+	this.data = dataObject; //data object format {'property1':[],'property2':[],...}
+	this.createChartData = function(property, data = this.data, dates = this.dates) { // converts data into chart.js format; property refers to a key for each element of data object
 		var chartData = [];
-		for (var i = 0; i < Object.keys(data).length; i++) {
-			date = dates[i]
-			chartData.push({t:date,
-							y:data[date.toLocaleDateString('en-US')][property]});
+		for (var i = 0; i < dates.length; i++) {
+			chartData.push({t:dates[i],
+				y:data[property][i]});
 		}
-		return chartData; // converts data into chart.js format
+		return chartData;
 	}
 	this.closeChartData = this.createChartData("close");
+	this.getDataOnDate = function(date, property) {
+		var dataRequest
+		// implement data search function for single and array of date/properties
+		return dataRequest
+	}
 }
 
-
-
-var buildChartContents = function() {
+var buildChartContents = function(chartDataArray, chartStartDate) {
 	return ({
 		type: 'line',
 		data: {
-			labels: data_tickers, // to update with annual stamps
-			datasets: [{
-				label: 'IJJ',
-				data: quotes.IJJ.closeChartData,
-				borderColor: [
-					'rgba(255, 99, 132, 0.2)'
-				],
-				fill: false
-			},
-			{
-				label: 'SPY',
-				data: quotes.SPY.closeChartData,
-				borderColor: [
-					'rgba(100, 99, 132, 0.2)'
-				],
-				fill: false
-			},
-			{
-				label: 'QQQ',
-				data: quotes.QQQ.closeChartData,
-				borderColor: [
-					'rgba(50, 150, 200, 0.2)'
-				],
-				fill: false
-			}]
+			datasets: chartDataArray
 		},
 		options: {
 			elements: {
@@ -83,8 +60,10 @@ var buildChartContents = function() {
 					radius: 0
 				}
 			},
+			events: ['click'],
 			tooltips: {
-				mode: 'index'
+				mode: "nearest",
+				intersect: false
 			},
 			scales: {
 				yAxes: [{
@@ -95,7 +74,7 @@ var buildChartContents = function() {
 				xAxes: [{
 					type: 'time',
 					ticks: {
-						min: Math.min(... [quotes.IJJ.first_date, quotes.SPY.first_date, quotes.QQQ.first_date])
+						min: chartStartDate
 					},
 					time: {
 						unit: 'month'
@@ -106,23 +85,56 @@ var buildChartContents = function() {
 	})
 };
 
+var addToChartDataArray = function (chartData, label, chartDataArray, color = "rgba(255, 99, 132, 0.2)") {
+	chartDataArray.push({
+		label: label,
+		data: chartData,
+		borderColor: [
+			color
+		],
+		fill: false
+	});
+	return chartDataArray;
+}
+
 /*
 Execution starts here
 */
 
 // download and store latest tickers from yahoo finance
+var quotes = [];
+var chartDataArray = [];
+var promises = [];
 data_tickers.push(bench_ticker);
 data_tickers = data_tickers.filter(onlyUnique);
 
 for (var ticker of data_tickers) {
-    var url = "https://query1.finance.yahoo.com/v8/finance/chart/"+ticker+"?interval=1d&range=30y"
-    fetch(cors_proxy+url, {headers: {origin: ""}}) // origin needed by cors_proxy
+    var url = "https://query1.finance.yahoo.com/v8/finance/chart/"+ticker+"?interval=1d&range=30y";
+    promises.push(fetch(cors_proxy+url, {headers: {origin: ""}}) // origin needed by cors_proxy
         .then(
             response => response.json()
         ).then(
             response_data => {
-                quotes[response_data["chart"]["result"][0]["meta"]["symbol"]] = new series(ydata_to_series(response_data));
+				dates = response_data['chart']['result'][0]['timestamp'].map(x => new Date(x*1000));
+				dataObject = {
+					'close': response_data['chart']['result'][0]["indicators"]["quote"][0]['close'],
+					'open': response_data['chart']['result'][0]["indicators"]["quote"][0]['open'],
+					'high': response_data['chart']['result'][0]["indicators"]["quote"][0]['high'],
+					'low': response_data['chart']['result'][0]["indicators"]["quote"][0]['low'],
+					'volume': response_data['chart']['result'][0]["indicators"]["quote"][0]['volume']
+				};
+                quotes[response_data["chart"]["result"][0]["meta"]["symbol"]] = new series(dates,dataObject);
             }
-        );
+        )
+	)
 }
 
+//build chartData after all data is downloaded
+Promise.all(promises).then(x=> {
+	chartDataArray = addToChartDataArray(quotes.IJJ.closeChartData,"IJJ",chartDataArray)
+	chartDataArray = addToChartDataArray(quotes.SPY.closeChartData,"SPY",chartDataArray, "rgba(99, 255, 132, 0.2)")
+	chartDataArray = addToChartDataArray(quotes.QQQ.closeChartData,"QQQ",chartDataArray, "rgba(99, 132, 255, 0.2)")
+})
+.then(x=> {
+	new Chart(ctx, buildChartContents(chartDataArray, chartStartDate)) //build chart into html
+});

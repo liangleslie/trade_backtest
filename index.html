@@ -1,8 +1,39 @@
 <!doctype html><html>
 <head></head>
 <body>
-<canvas id="myChart" width="200" height="100"></canvas>
-<script src="chart/chart.bundle.js"></script>
-<script src="backtest.js"></script>
+<div class="container">
+	<div class="fixed">
+		<table id="paramTable">
+		</table>
+	</div>
+	<div class="flex-item">
+		<canvas id="myChart"></canvas>
+	</div>
+</div>
+
+<style>
+.container{
+    display: flex;
+}
+.fixed{
+    width: 200px;
+}
+.flex-item{
+    flex-grow: 1;
+}
+</style>
+
+<script src="js/jquery/jquery-3.5.1.js"></script>
+<script src="js/chart/chart.bundle.js"></script>
+<script src="data/indicator.js"></script>
+<script src="backtest-logic.js"></script>
+<script src="main.js"></script>
+<script src="backtest-param.js"></script>
+
+<!-- start collapsing table code -->
+<script src="js/collapse_table/collapse_table.js"></script>
+<link rel="stylesheet" href="css/collapse_table.css">
+<!-- end collapsing table code -->
+
 </body>
 </html>

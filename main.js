@@ -1,5 +1,6 @@
 /*
 Variables defined here
+Should be temporary - variables should be defined and modified from HTML
 */
 var bench_ticker = "SPY";
 var data_tickers = ["QQQ","IJJ","SPY"];
@@ -14,20 +15,6 @@ function onlyUnique(value, index, self) {
   return self.indexOf(value) === index;
 }
 
-function ydata_to_series(y_data) {
-	var series = {};
-	for (var i = 0; i < y_data['chart']['result'][0]['timestamp'].length; i++) {
-		date = new Date(y_data['chart']['result'][0]['timestamp'][i]*1000).toLocaleDateString('en-US'); // convert ydata timestamps into date keys
-		properties = [Object.keys(y_data['chart']['result'][0]["indicators"]["quote"][0])][0]; // extract ydata quote properties into an array
-		series[date] = { [properties[0]] : y_data['chart']['result'][0]["indicators"]["quote"][0][properties[0]][i],
-						[properties[1]] : y_data['chart']['result'][0]["indicators"]["quote"][0][properties[1]][i],
-						[properties[2]] : y_data['chart']['result'][0]["indicators"]["quote"][0][properties[2]][i],
-						[properties[3]] : y_data['chart']['result'][0]["indicators"]["quote"][0][properties[3]][i],
-						[properties[4]] : y_data['chart']['result'][0]["indicators"]["quote"][0][properties[4]][i]};
-	}
-	return series;
-};
-
 function series(dates,dataObject) {
 	this.dates = dates;
 	this.first_date = Math.min(... this.dates);
@@ -41,18 +28,41 @@ function series(dates,dataObject) {
 		return chartData;
 	}
 	this.closeChartData = this.createChartData("close");
-	this.getDataOnDate = function(date, property) {
-		var dataRequest
-		// implement data search function for single and array of date/properties
-		return dataRequest
-	}
+	this.getDataOnDate = function(date, property) {  // gets data on date, and if date is non-market day, get data on last market day
+		var dataRequest;
+		if (typeof(date) == "number") {
+			try {
+				requestDate = new Date(date - date%(60*60*24*1000) + 60*60*24*1000);
+			} catch {
+				throw "Date argument is invalid number"
+			}
+		} else if (typeof(date) == "object") {
+			try {
+				requestDate = date;
+			} catch {
+				throw "Date argument is invalid date object"
+			}
+		} else if (typeof(date) == "string") {
+			try {
+				requestDate = new Date(date);
+				requestDate.setUTCHours(0,0,0,0);
+				requestDate.setDate(requestDate.getDate()+1);
+			} catch {
+				throw "Date argument is invalid date string"
+			}
+		};
+		dateIndex = this.dates.findIndex(x => x > requestDate) - 1;
+		dataRequest = this.data[property][dateIndex];
+		// console.log(date,requestDate,this.dates[dateIndex],dateIndex,dataRequest);  // for debug purposes
+		return dataRequest;
+	};
 }
 
 var buildChartContents = function(chartDataArray, chartStartDate) {
 	return ({
 		type: 'line',
 		data: {
-			datasets: chartDataArray
+			datasets: chartDataArray // chartData goes here
 		},
 		options: {
 			elements: {
@@ -65,6 +75,13 @@ var buildChartContents = function(chartDataArray, chartStartDate) {
 				mode: "nearest",
 				intersect: false
 			},
+			animation: {
+				duration: 0 // general animation time
+			},
+			hover: {
+				animationDuration: 0 // duration of animations when hovering an item
+			},
+			responsiveAnimationDuration: 0, // animation duration after a resize
 			scales: {
 				yAxes: [{
 					ticks: {
@@ -74,7 +91,7 @@ var buildChartContents = function(chartDataArray, chartStartDate) {
 				xAxes: [{
 					type: 'time',
 					ticks: {
-						min: chartStartDate
+						min: chartStartDate // set start date
 					},
 					time: {
 						unit: 'month'
@@ -97,6 +114,12 @@ var addToChartDataArray = function (chartData, label, chartDataArray, color = "r
 	return chartDataArray;
 }
 
+
+//
+
+
+
+
 /*
 Execution starts here
 */
@@ -115,7 +138,7 @@ for (var ticker of data_tickers) {
             response => response.json()
         ).then(
             response_data => {
-				dates = response_data['chart']['result'][0]['timestamp'].map(x => new Date(x*1000));
+				dates = response_data['chart']['result'][0]['timestamp'].map(x => new Date((x-x%(60*60*24))*1000));
 				dataObject = {
 					'close': response_data['chart']['result'][0]["indicators"]["quote"][0]['close'],
 					'open': response_data['chart']['result'][0]["indicators"]["quote"][0]['open'],
@@ -129,6 +152,17 @@ for (var ticker of data_tickers) {
 	)
 }
 
+
+
+//display model properties in a table
+
+//allow modifiable parameters
+
+//build backtest logic and rules
+
+
+
+
 //build chartData after all data is downloaded
 Promise.all(promises).then(x=> {
 	chartDataArray = addToChartDataArray(quotes.IJJ.closeChartData,"IJJ",chartDataArray)
@@ -136,5 +170,5 @@ Promise.all(promises).then(x=> {
 	chartDataArray = addToChartDataArray(quotes.QQQ.closeChartData,"QQQ",chartDataArray, "rgba(99, 132, 255, 0.2)")
 })
 .then(x=> {
-	new Chart(ctx, buildChartContents(chartDataArray, chartStartDate)) //build chart into html
+	myChart = new Chart(ctx, buildChartContents(chartDataArray, chartStartDate)) //build chart into html
 });

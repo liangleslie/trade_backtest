@@ -5,6 +5,7 @@
 	<div class="fixed">
 		<table id="paramTable">
 		</table>
+		<button onclick="updateExec()">Update Parameters</button>
 	</div>
 	<div class="flex-item">
 		<canvas id="myChart"></canvas>
@@ -12,23 +13,17 @@
 </div>
 
 <style>
-.container{
-    display: flex;
-}
-.fixed{
-    width: 200px;
-}
-.flex-item{
-    flex-grow: 1;
-}
+
 </style>
 
 <script src="js/jquery/jquery-3.5.1.js"></script>
-<script src="js/chart/chart.bundle.js"></script>
+<script src="js/chart/Chart.bundle.js"></script>
 <script src="data/indicator.js"></script>
+<script src="data/offline-y-data.js"></script>
 <script src="backtest-logic.js"></script>
-<script src="main.js"></script>
 <script src="backtest-param.js"></script>
+<script src="main.js"></script>
+<link rel="stylesheet" href="css/main.css">
 
 <!-- start collapsing table code -->
 <script src="js/collapse_table/collapse_table.js"></script>

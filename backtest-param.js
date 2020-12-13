@@ -16,16 +16,20 @@ var instrumentParams = {
 		key: "Short", defaultValue: "VXX"
 }]},{
 	key: "Thresholds", collapsible: true, children: [{
-		key: "Super bull threshold", defaultValue: "80%"
+		key: "Super bull threshold", defaultValue: "80", units: "%"
 	},{
-		key: "Bull threshold", defaultValue: "60%"
+		key: "Bull threshold", defaultValue: "60", units: "%"
 	},{
-		key: "Bear threshold", defaultValue: "40%"
+		key: "Bear threshold", defaultValue: "40", units: "%"
 	},{
-		key: "Short threshold", defaultValue: "20%"
+		key: "Short threshold", defaultValue: "20", units: "%"
 }]},{
 	key: "Other parameters", collapsible: true, children: [{
-		key: "Slippage", defaultValue: "0.1%"
+		key: "Start value", defaultValue: "100000"
+	},{
+		key: "Benchmark", defaultValue: "SPY"
+	},{
+		key: "Slippage", defaultValue: "0.1", units: "%"
 	},{
 		key: "Rebalance frequency", defaultValue: "999"
 	},{
@@ -36,18 +40,18 @@ var instrumentParams = {
 
 var indicatorParams = {
 	key: "Indicator Parameters", collapsible: true, children:[{
-	key: "Indicator weights", collapsible: true, children: [{
-		key: "Momentum", defaultValue: "1%"
+	key: "Indicator relative weights", collapsible: true, children: [{
+		key: "Momentum", defaultValue: "1", units: "%"
 	},{
-		key: "High-Low SMA", defaultValue: "1%"
+		key: "High-Low SMA", defaultValue: "1", units: "%"
 	},{
-		key: "Inflation", defaultValue: "1%"
+		key: "Inflation", defaultValue: "1", units: "%"
 	},{
-		key: "VIX", defaultValue: "1%"
+		key: "VIX", defaultValue: "1", units: "%"
 	},{
-		key: "Unemployment", defaultValue: "1%"
+		key: "Unemployment", defaultValue: "1", units: "%"
 	},{
-		key: "S&P Beta", defaultValue: "1%"
+		key: "S&P Beta", defaultValue: "1", units: "%"
 	}]
 }]};
 
@@ -63,12 +67,13 @@ Functions start here
 
 //build nested table from key
 function buildTable(params, depth = 0) {
-	var htmlOutput = "";
-	var idFromName = params.key.toLowerCase().replaceAll(" ","-");
-	var currentClassName = "collapse level"+depth;
+	let htmlOutput = "";
+	let idFromName = params.key.toLowerCase().replaceAll(" ","_");
+	let currentClassName = "collapse level"+depth;
 	htmlOutput += `<tr data-depth="${ depth }" class="${ currentClassName }">
-<td><div class="param">${ params.collapsible ? `<span class="toggle collapse"></span>` : "" }${ params.key }</div></td>
-${ "defaultValue" in params ? `<td><input class="inputData" type="text" id="${ idFromName }" name="${ idFromName }" value="${ params.defaultValue }"></td>` : ""}</tr>
+<td ${ "defaultValue" in params ? "" : `colspan="2"`}><div class="param">${ params.collapsible ? `<span class="toggle collapse"></span>` : "" }${ params.key }</div></td>
+${ "defaultValue" in params ? `<td><input class="inputData" type="text" id="${ idFromName }" name="${ idFromName }" value="${ params.defaultValue }">
+${ params.units == "%" ? `<span>%</span>`:""}</td>` : ""}</tr>
 `;
 	if ("children" in params) {
 		for (childParams of params.children) {htmlOutput += buildTable(childParams, depth+1)}
@@ -78,7 +83,7 @@ ${ "defaultValue" in params ? `<td><input class="inputData" type="text" id="${ i
 
 //pull input params into inputObject
 function pullInputParams() {
-	var inputObject = {};
+	let inputObject = {};
 	inputNodes = document.querySelectorAll(".inputData");
 	for (node of inputNodes) {
 		inputObject[node.name] = node.value

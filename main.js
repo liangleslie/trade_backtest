@@ -77,7 +77,7 @@ function onlyUnique(value, index, self) {
 //create series object to store quote and indicator data
 function series(dates,dataObject) {
 	this.dates = dates;
-	this.first_date = Math.min(... this.dates);
+	this.firstDate = Math.min(... this.dates);
 	this.data = dataObject; //data object format {'property1':[],'property2':[],...}
 	this.createChartData = function(property, data = this.data, dates = this.dates) { // converts data into chart.js format; property refers to a key for each element of data object
 		let chartData = [];
@@ -184,7 +184,12 @@ for (let ticker of data_tickers) {
 	};
 	quotes[ticker["chart"]["result"][0]["meta"]["symbol"]] = new series(dates,dataObject);	
 }
-	
+
+//create CASH quote
+quotes["CASH"] = new series (SPY.chart.result[0].timestamp.map(x => new Date((x-x%(60*60*24))*1000)), {
+	'close': Array(SPY.chart.result[0].timestamp.length).fill(1),
+	'open': Array(SPY.chart.result[0].timestamp.length).fill(1)
+});
 
 // build chartData using backtest logic after all data is downloaded
 backtestResult = backtestExec(inputObj, quotes, indicators,rules);

@@ -13,7 +13,7 @@ var instrumentParams = {
 	},{
 		key: "Safe stock", defaultValue: "TLT"
 	},{
-		key: "Short", defaultValue: "VXX"
+		key: "Short", defaultValue: "TLT"
 }]},{
 	key: "Thresholds", collapsible: true, children: [{
 		key: "Super bull threshold", defaultValue: "80", units: "%"

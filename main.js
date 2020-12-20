@@ -116,6 +116,37 @@ function series(dates,dataObject) {
 		// console.log(date,requestDate,this.dates[dateIndex],dateIndex,dataRequest);  // for debug purposes
 		return dataRequest;
 	};
+	
+	this.getDatasOnDate = function(date, properties) {  // gets data on date, and if date is non-market day, get data on last market day
+		let dataRequest = [];
+		if (typeof(date) == "number") {
+			try {
+				requestDate = new Date(date - date%(60*60*24*1000) + 60*60*24*1000);
+			} catch {
+				throw "Date argument is invalid number"
+			}
+		} else if (typeof(date) == "object") {
+			try {
+				requestDate = date;
+			} catch {
+				throw "Date argument is invalid date object"
+			}
+		} else if (typeof(date) == "string") {
+			try {
+				requestDate = new Date(date);
+				requestDate.setUTCHours(0,0,0,0);
+				requestDate.setDate(requestDate.getDate()+1);
+			} catch {
+				throw "Date argument is invalid date string"
+			}
+		};
+		dateIndex = this.dates.findIndex(x => x > requestDate) - 1;
+		for (property of properties) {
+		    dataRequest.push(this.data[property][dateIndex]);
+		};
+		// console.log(date,requestDate,this.dates[dateIndex],dateIndex,dataRequest);  // for debug purposes
+		return dataRequest;
+	};
 };
 
 var addToChartDataArray = function (chartData, label, chartDataArray, color) {
@@ -193,13 +224,15 @@ quotes["CASH"] = new series (SPY.chart.result[0].timestamp.map(x => new Date((x-
 
 // build chartData using backtest logic after all data is downloaded
 backtestResult = backtestExec(inputObj, quotes, indicators,rules);
+var modelSeries = {}
+modelSeries.benchmark = new series(backtestResult.dates, {"close": backtestResult.benchmarkValue});
+modelSeries.model = new series(backtestResult.dates, {"close": backtestResult.modelValue});
 
 //build chart temp
 Promise.all(promises).then(x=> {
 	chartDataArray = [];
-	chartDataArray = addToChartDataArray(quotes.IJJ.closeChartData,"IJJ",chartDataArray, "rgba(255, 99, 132, 0.5)");
-	chartDataArray = addToChartDataArray(quotes.SPY.closeChartData,"SPY",chartDataArray, "rgba(99, 255, 132, 0.5)");
-	chartDataArray = addToChartDataArray(quotes.QQQ.closeChartData,"QQQ",chartDataArray, "rgba(99, 132, 255, 0.5)");
+	chartDataArray = addToChartDataArray(modelSeries.model.closeChartData,"Model", chartDataArray, "rgba(255, 99, 132, 0.5)");
+	chartDataArray = addToChartDataArray(modelSeries.benchmark.closeChartData,"Benchmark - "+inputObj.benchmark, chartDataArray, "rgba(99, 255, 132, 0.5)");
 	chartContents.data.datasets = chartDataArray;
 })
 .then(x=> {

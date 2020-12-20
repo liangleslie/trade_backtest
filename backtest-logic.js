@@ -39,13 +39,20 @@ function dotProduct (arr1, arr2) {
 
 // implement faster price list extraction
 
+function arraysEqual(a1,a2) {
+    /* WARNING: arrays must not contain {objects} or behavior may be undefined */
+    return JSON.stringify(a1)==JSON.stringify(a2);
+}
+
 function backtestExec(inputObj, quotes, indicators, rules) {
     let backtestResult = {
         dates: [],
         benchmarkValue: [], 
+        modelAllocation: [],
         modelValue: [], //initialise modelValue with start_value
         modelValues: [],
 		modelUnits: [],
+		tickerOpenPriceList: [],
         tickerClosePriceList: [],
         backtestProperties:{}
     };
@@ -58,23 +65,50 @@ function backtestExec(inputObj, quotes, indicators, rules) {
 					.concat("CASH");
     backtestResult.dates = buildBacktestDates(quotes); // build array of dates
     
-    modelValues.push(Array(backtestResult.backtestProperties.tickerList.length - 1).fill(0).concat(modelValue[0])) // start with 100 value in cash
+    // build first day results
+    let currentTickerPriceList = [];
+    for (let ticker of backtestResult.backtestProperties.tickerList) {
+        currentTickerPriceList.push(quotes[ticker].getDatasOnDate(backtestResult.dates[0],["close","open"]));
+    };
+    backtestResult.tickerClosePriceList.push(currentTickerPriceList);
     
     let benchmark = quotes[inputObj.benchmark];
     let benchmarkUnits = inputObj.start_value / benchmark.getDataOnDate(backtestResult.dates[0],"close");
+    
+    let currentPortfolio = rules(inputObj, indicators, backtestResult.dates[0]);
+    let currentPortfolioValues = currentPortfolio.map(x => x / currentPortfolio.reduce((a, b) => a + b, 0) * inputObj.start_value); // reweight as ratio
+    let currentPortfolioUnits = currentPortfolioValues.map((x,i) => x / currentTickerPriceList[i][1]); // calculate units based on open price
+    currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
 
-    for (let date of backtestResult.dates) {
-        backtestResult.benchmarkValue.push(benchmarkUnits * benchmark.getDataOnDate(date,"close"));
-        let currentPortfolio = rules(inputObj, indicators, date);
-		currentPortfolio = currentPortfolio.map(x => x/currentPortfolio.reduce((a, b) => a + b, 0) * backtestResult.modelValue[backtestResult.dates.length])) // reweight as ratio
-		
-        backtestResult.modelUnits.push(currentPortfolio);
-        let currentTickerPriceList = [];
+    backtestResult.modelAllocation.push(currentPortfolio);
+    backtestResult.modelValues.push(currentPortfolioValues);
+    backtestResult.modelUnits.push(currentPortfolioUnits);
+    backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
+
+    // loop through results for subsequent days
+    for (let date of backtestResult.dates.slice(1)) {
+        currentTickerPriceList = [];
         for (let ticker of backtestResult.backtestProperties.tickerList) {
-            currentTickerPriceList.push(quotes[ticker].getDataOnDate(date,"close"));
+            currentTickerPriceList.push(quotes[ticker].getDatasOnDate(date,["close","open"]));
         };
         backtestResult.tickerClosePriceList.push(currentTickerPriceList);
-        backtestResult.modelValue.push(dotProduct(currentPortfolio,currentTickerPriceList));
+        
+        backtestResult.benchmarkValue.push(benchmarkUnits * benchmark.getDataOnDate(date,"close"));
+        
+        currentPortfolio = rules(inputObj, indicators, date);
+        if (arraysEqual(currentPortfolio,backtestResult.modelAllocation[backtestResult.modelAllocation.length - 1])) { // if rules suggest no change in model allocation
+            currentPortfolioUnits = backtestResult.modelUnits[backtestResult.modelUnits.length - 1]; // set currentPortfolioUnits to previous period
+            currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
+        } else { // if rules suggest change in model allocation
+            currentPortfolioValues = currentPortfolio.map((x,i) => x / currentPortfolio.reduce((a,b) => a + b, 0) * backtestResult.modelValue[backtestResult.modelValue.length - 1]); // calculate portfolio allocation based on last period modelValue 
+            currentPortfolioUnits = currentPortfolioValues.map((x,i) => x / currentTickerPriceList[i][1]); // calculate units based on open price
+            currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
+        }
+
+        backtestResult.modelAllocation.push(currentPortfolio);
+        backtestResult.modelValues.push(currentPortfolioValues);
+        backtestResult.modelUnits.push(currentPortfolioUnits);
+        backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
     };
     
     return backtestResult;

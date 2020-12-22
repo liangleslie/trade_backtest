@@ -22,22 +22,21 @@ function buildChartData(inputObj, quotes, dates) {
     return chartData;
 };
 
-function rules(inputObj, indicators, date) { // rule should return number of units of each symbol to hold
-	let tickerList = inputObj.super_bull_instrument.split(",")
-                    .concat(inputObj.bull_instruments.split(","))
-                    .concat(inputObj.bear_instruments.split(","))
-                    .concat(inputObj.safe_stock.split(","))
-                    .concat(inputObj.short.split(","))
-					.concat("CASH");
-    let portfolio = Array(tickerList.length).fill(1);
-    return portfolio;
+function rules(inputObj, indicators, date, tickers) { // rule should return number of units of each symbol to hold
+	// rule should output bull or bear to position
+	position = 1;
+	
+	// bull bear output to be converted to holding
+	// 0: super bull ; 1: bull ; 2: bear; 3: safe; 4: short; 5: cash
+	let portfolio = Array(tickers[position].tickersBefore).fill(0)			// tickers before position = 0
+				.concat(Array(tickers[position].numberOfTickers).fill(1))	// tickers in position = 1
+				.concat(Array(tickers[position].tickersAfter).fill(0))		// tickers after position = 0
+	return portfolio;
 };
 
 function dotProduct (arr1, arr2) {
     return arr1.reduce((r,a,i) => r+a*arr2[i],0);
 };
-
-// implement faster price list extraction
 
 function arraysEqual(a1,a2) {
     /* WARNING: arrays must not contain {objects} or behavior may be undefined */
@@ -57,14 +56,31 @@ function backtestExec(inputObj, quotes, indicators, rules) {
         backtestProperties:{}
     };
 
+	//organise tickers
     backtestResult.backtestProperties.tickerList = inputObj.super_bull_instrument.split(",")
                     .concat(inputObj.bull_instruments.split(","))
                     .concat(inputObj.bear_instruments.split(","))
                     .concat(inputObj.safe_stock.split(","))
                     .concat(inputObj.short.split(","))
 					.concat("CASH");
+	let tickers = [];
+	let tickersTemp = 0;
+	for (item of ["super_bull_instrument","bull_instruments","bear_instruments","safe_stock","short"]) {
+		let tickerObj = {};
+		tickerObj.tickers = inputObj[item].split(",");
+		tickerObj.tickersBefore = tickersTemp;
+		tickerObj.numberOfTickers = tickerObj.tickers.length;
+		tickerObj.tickersAfter = backtestResult.backtestProperties.tickerList.length - tickerObj.numberOfTickers - tickerObj.tickersBefore;
+		
+		tickers.push(tickerObj);
+		tickersTemp += tickerObj.numberOfTickers;
+	};
+	console.log(tickers);
+
     backtestResult.dates = buildBacktestDates(quotes); // build array of dates
     
+
+	
     // build first day results
     let currentTickerPriceList = [];
     for (let ticker of backtestResult.backtestProperties.tickerList) {
@@ -75,7 +91,7 @@ function backtestExec(inputObj, quotes, indicators, rules) {
     let benchmark = quotes[inputObj.benchmark];
     let benchmarkUnits = inputObj.start_value / benchmark.getDataOnDate(backtestResult.dates[0],"close");
     
-    let currentPortfolio = rules(inputObj, indicators, backtestResult.dates[0]);
+    let currentPortfolio = rules(inputObj, indicators, backtestResult.dates[0], tickers);
     let currentPortfolioValues = currentPortfolio.map(x => x / currentPortfolio.reduce((a, b) => a + b, 0) * inputObj.start_value); // reweight as ratio
     let currentPortfolioUnits = currentPortfolioValues.map((x,i) => x / currentTickerPriceList[i][1]); // calculate units based on open price
     currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
@@ -85,7 +101,7 @@ function backtestExec(inputObj, quotes, indicators, rules) {
     backtestResult.modelUnits.push(currentPortfolioUnits);
     backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
 
-    // loop through results for subsequent days
+    // loop through results for subsequent days; SLOW 
     for (let date of backtestResult.dates.slice(1)) {
         currentTickerPriceList = [];
         for (let ticker of backtestResult.backtestProperties.tickerList) {
@@ -95,7 +111,7 @@ function backtestExec(inputObj, quotes, indicators, rules) {
         
         backtestResult.benchmarkValue.push(benchmarkUnits * benchmark.getDataOnDate(date,"close"));
         
-        currentPortfolio = rules(inputObj, indicators, date);
+        currentPortfolio = rules(inputObj, indicators, date, tickers);
         if (arraysEqual(currentPortfolio,backtestResult.modelAllocation[backtestResult.modelAllocation.length - 1])) { // if rules suggest no change in model allocation
             currentPortfolioUnits = backtestResult.modelUnits[backtestResult.modelUnits.length - 1]; // set currentPortfolioUnits to previous period
             currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price

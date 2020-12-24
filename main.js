@@ -88,7 +88,7 @@ function series(dates,dataObject) {
 		return chartData;
 	};
 	this.closeChartData = this.createChartData("close");
-	this.getDataOnDate = function(date, property) {  // gets data on date, and if date is non-market day, get data on last market day
+	this.getDataOnDate = function(date, property = "close") {  // gets data on date, and if date is non-market day, get data on last market day
 		let dataRequest;
 		if (typeof(date) == "number") {
 			try {
@@ -166,8 +166,15 @@ function updateExec() {
 	console.log(inputObj);
 	backtestResult = backtestExec(inputObj, quotes, indicators,rules);
 	// update backtest and buildChartContents
+	var modelSeries = {}
+	modelSeries.benchmark = new series(backtestResult.dates, {"close": backtestResult.benchmarkValue});
+	modelSeries.model = new series(backtestResult.dates, {"close": backtestResult.modelValue});
+	var chartDataArray = [];
+	chartDataArray = addToChartDataArray(modelSeries.model.closeChartData,"Model", chartDataArray, "rgba(255, 99, 132, 0.5)");
+	chartDataArray = addToChartDataArray(modelSeries.benchmark.closeChartData,"Benchmark - "+inputObj.benchmark, chartDataArray, "rgba(99, 255, 132, 0.5)");
+	
 	myChart.options = chartOptions(new Date(inputObj["start-date"])); // update options including start date
-	myChart.data.datasets = backtestResult.chartData; // update chart data on myChart
+	myChart.data.datasets = chartDataArray; // update chart data on myChart
 	myChart.update()
 };
 
@@ -176,6 +183,7 @@ Execution starts here
 */	// download and store latest tickers from yahoo finance
 var quotes = [];
 var promises = [];
+var bar1 = new ldBar("#ldBar");
 data_tickers.push(bench_ticker);
 data_tickers = data_tickers.filter(onlyUnique);
 
@@ -221,6 +229,14 @@ quotes["CASH"] = new series (SPY.chart.result[0].timestamp.map(x => new Date((x-
 	'close': Array(SPY.chart.result[0].timestamp.length).fill(1),
 	'open': Array(SPY.chart.result[0].timestamp.length).fill(1)
 });
+
+//create indicators
+for (let indicatorName of ["momentum","highLow","inflation","vix","unemployment","spbeta"]) {
+	let indicator = window[indicatorName];
+	let dataObj = {"close":indicator};
+	let tempDate = indicatorDate.slice(indicatorDate.length - indicator.length).map(x => new Date((x+60*60*24-x%(60*60*24))*1000));
+	indicators[indicatorName] = new series(tempDate,dataObj);
+}
 
 // build chartData using backtest logic after all data is downloaded
 backtestResult = backtestExec(inputObj, quotes, indicators,rules);

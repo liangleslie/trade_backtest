@@ -1,4 +1,4 @@
-function buildBacktestDates (uniqueTickerList) {
+function buildBacktestDates (uniqueTickerList, inputObj, quotes) {
     let dates = [];
     let temp
     let startDate = new Date(inputObj.start_date) ;
@@ -15,27 +15,87 @@ function buildBacktestDates (uniqueTickerList) {
 function buildChartData(inputObj, quotes, dates) {
     let chartData = {benchmark: [], model: []};
     let benchmark = quotes[inputObj.benchmark];
-    let benchmarkUnits = inputObj.start_value / benchmark.getDataOnDate(dates[0],"close");
+    let benchmarkUnits = inputObj.start_value / getDataOnDate(dates[0], benchmark, "close");
     for (date of dates) {
-        chartData.benchmark.push({x: date, y: benchmarkUnits * benchmark.getDataOnDate(date,"close")});
+        chartData.benchmark.push({x: date, y: benchmarkUnits * getDataOnDate(date, benchmark, "close")});
 		//implement model data
     };
     return chartData;
 };
 
+function getDataOnDate(date, tickerObj, property = "close") {  // gets data on date, and if date is non-market day, get data on last market day
+	let dataRequest;
+	if (typeof(date) == "number") {
+		try {
+			requestDate = new Date(date - date%(60*60*24*1000) + 60*60*24*1000);
+		} catch {
+			throw "Date argument is invalid number"
+		}
+	} else if (typeof(date) == "object") {
+		try {
+			requestDate = date;
+		} catch {
+			throw "Date argument is invalid date object"
+		}
+	} else if (typeof(date) == "string") {
+		try {
+			requestDate = new Date(date);
+			requestDate.setUTCHours(0,0,0,0);
+			requestDate.setDate(requestDate.getDate()+1);
+		} catch {
+			throw "Date argument is invalid date string"
+		}
+	};
+	dateIndex = tickerObj.dates.findIndex(x => x > requestDate) - 1;
+	dataRequest = tickerObj.data[property][dateIndex];
+	// console.log(date,requestDate,this.dates[dateIndex],dateIndex,dataRequest);  // for debug purposes
+	return dataRequest;
+};
+
+function getDatasOnDate(date, tickerObj, properties) {  // gets data on date, and if date is non-market day, get data on last market day
+	let dataRequest = [];
+	if (typeof(date) == "number") {
+		try {
+			requestDate = new Date(date - date%(60*60*24*1000) + 60*60*24*1000);
+		} catch {
+			throw "Date argument is invalid number"
+		}
+	} else if (typeof(date) == "object") {
+		try {
+			requestDate = date;
+		} catch {
+			throw "Date argument is invalid date object"
+		}
+	} else if (typeof(date) == "string") {
+		try {
+			requestDate = new Date(date);
+			requestDate.setUTCHours(0,0,0,0);
+			requestDate.setDate(requestDate.getDate()+1);
+		} catch {
+			throw "Date argument is invalid date string"
+		}
+	};
+	dateIndex = tickerObj.dates.findIndex(x => x > requestDate) - 1;
+	for (property of properties) {
+		dataRequest.push(tickerObj.data[property][dateIndex]);
+	};
+	// console.log(date,requestDate,this.dates[dateIndex],dateIndex,dataRequest);  // for debug purposes
+	return dataRequest;
+};
+
 function rules(weights, thresholds, indicators, date, tickers) { // rule should return number of units of each symbol to hold
 	// rule should output bull or bear to position
-	currentIndicators = [indicators.momentum.getDataOnDate(date),
-							indicators.highLow.getDataOnDate(date),
-							indicators.inflation.getDataOnDate(date),
-							indicators.vix.getDataOnDate(date),
-							indicators.unemployment.getDataOnDate(date),
-							indicators.spbeta.getDataOnDate(date)]
+	currentIndicators = [getDataOnDate(date, indicators.momentum),
+							getDataOnDate(date, indicators.highLow),
+							getDataOnDate(date, indicators.inflation),
+							getDataOnDate(date, indicators.vix),
+							getDataOnDate(date, indicators.unemployment),
+							getDataOnDate(date, indicators.spbeta)]
 	compositeIndicator = currentIndicators.reduce((a,b,i) => weights[i] == 0 ? a+0 : a+b*weights[i], 0) / weights.reduce((a,b) => a+b, 0)
 	let position = compositeIndicator > thresholds.superBull ? 0 :
 					compositeIndicator > thresholds.bull ? 1 :
 					compositeIndicator > thresholds.bear ? 2 :
-					compositeIndicator > thresholds.short || compositeIndicator < thresholds.bear ? 3 :
+					compositeIndicator > thresholds.short && compositeIndicator < thresholds.bear ? 3 :
 					compositeIndicator < thresholds.short ? 4 : 5;
 	
 	// bull bear output to be converted to holding
@@ -55,11 +115,15 @@ function arraysEqual(a1,a2) {
     return JSON.stringify(a1)==JSON.stringify(a2);
 }
 
+function onlyUnique(value, index, self) {
+  return self.indexOf(value) === index;
+}
+
 function buildTickerPriceList(uniqueTickerList, tickerList, date, quotes) {
 	let currentTickerPriceList = [];
 	let currentTickerPriceObj = {};
 	for (let ticker of uniqueTickerList) {
-		currentTickerPriceObj[ticker] = quotes[ticker].getDatasOnDate(date,["close","open"]);
+		currentTickerPriceObj[ticker] = getDatasOnDate(date, quotes[ticker], ["close","open"]);
 	};
 	for (let ticker of tickerList) {
 		currentTickerPriceList.push(currentTickerPriceObj[ticker]);
@@ -117,17 +181,17 @@ function backtestExec(inputObj, quotes, indicators, rules) {
 	}
 	
 	// define test dates
-    backtestResult.dates = buildBacktestDates(backtestResult.backtestProperties.uniqueTickerList); // build array of dates
+    backtestResult.dates = buildBacktestDates(backtestResult.backtestProperties.uniqueTickerList, inputObj, quotes); // build array of dates
 	totalDays = backtestResult.dates.length;
 	currentDay = 0;
-	bar1.set(0);
+	postMessage(["bar1",currentDay/totalDays*100]);
 	
     // build first day results
     let currentTickerPriceList = buildTickerPriceList(backtestResult.backtestProperties.uniqueTickerList, backtestResult.backtestProperties.tickerList, backtestResult.dates[0], quotes);
     backtestResult.tickerClosePriceList.push(currentTickerPriceList);
     
     let benchmark = quotes[inputObj.benchmark];
-    let benchmarkUnits = inputObj.start_value / benchmark.getDataOnDate(backtestResult.dates[0],"close");
+    let benchmarkUnits = inputObj.start_value / getDataOnDate(backtestResult.dates[0], benchmark, "close");
     
     let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, backtestResult.dates[0], tickers);
     let currentPortfolioValues = currentPortfolio.map(x => x / currentPortfolio.reduce((a, b) => a + b, 0) * inputObj.start_value); // reweight as ratio
@@ -139,14 +203,14 @@ function backtestExec(inputObj, quotes, indicators, rules) {
     backtestResult.modelUnits.push(currentPortfolioUnits);
     backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
 	currentDay += 1;
-	bar1.set(currentDay/totalDays * 100);
+	postMessage(["bar1",currentDay/totalDays*100]);
 	
     // loop through results for subsequent days; SLOW 
     for (let date of backtestResult.dates.slice(1)) {
         let currentTickerPriceList = buildTickerPriceList(backtestResult.backtestProperties.uniqueTickerList, backtestResult.backtestProperties.tickerList, date, quotes);
         backtestResult.tickerClosePriceList.push(currentTickerPriceList);
         
-        backtestResult.benchmarkValue.push(benchmarkUnits * benchmark.getDataOnDate(date,"close"));
+        backtestResult.benchmarkValue.push(benchmarkUnits * getDataOnDate(date, benchmark, "close"));
         
         let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, date, tickers);
 		
@@ -165,11 +229,20 @@ function backtestExec(inputObj, quotes, indicators, rules) {
         backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
 		
 		currentDay += 1;
-		bar1.set(currentDay/totalDays * 100);
+		postMessage(["bar1",currentDay/totalDays*100]);
     };
     console.log(backtestResult);
     return backtestResult;
 };
+
+onmessage = function(e) {
+	var inputObj = e.data[0];
+	var quotes = e.data[1];
+	var indicators = e.data[2];
+	console.log(inputObj);
+	var backtestResult = backtestExec(inputObj, quotes, indicators, rules);
+	postMessage(["backtestResult",backtestResult]);
+}
 
 
 /*

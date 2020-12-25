@@ -5,15 +5,15 @@ Input parameter definitions
 var instrumentParams = {
 	key: "Instrument Parameters", collapsible: true, children:[{
 	key: "Instruments", collapsible: true, children: [{
-		key: "Super bull instrument", defaultValue: "SPXL"
+		key: "Super bull instrument", defaultValue: "QQQ,SPY,IJJ"
 	},{
 		key: "Bull instruments", defaultValue: "QQQ,SPY,IJJ"
 	},{
 		key: "Bear instruments", defaultValue: "GLD,XLP"
 	},{
-		key: "Safe stock", defaultValue: "TLT"
+		key: "Safe stock", defaultValue: "TLT,IEF"
 	},{
-		key: "Short", defaultValue: "TLT"
+		key: "Short", defaultValue: "TLT,IEF"
 }]},{
 	key: "Thresholds", collapsible: true, children: [{
 		key: "Super bull threshold", defaultValue: "80", units: "%"
@@ -43,15 +43,15 @@ var indicatorParams = {
 	key: "Indicator relative weights", collapsible: true, children: [{
 		key: "Momentum", defaultValue: "1", units: "%"
 	},{
-		key: "High-Low SMA", defaultValue: "1", units: "%"
+		key: "High-Low SMA", defaultValue: "2", units: "%"
 	},{
 		key: "Inflation", defaultValue: "1", units: "%"
 	},{
-		key: "VIX", defaultValue: "1", units: "%"
+		key: "VIX", defaultValue: "2", units: "%"
 	},{
 		key: "Unemployment", defaultValue: "1", units: "%"
 	},{
-		key: "S&P Beta", defaultValue: "1", units: "%"
+		key: "S&P Beta", defaultValue: "0", units: "%"
 	}]
 }]};
 

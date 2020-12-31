@@ -31,8 +31,29 @@ var chartOptions = function(chartStartDate) {
 		},
 		events: ['click'],
 		tooltips: {
-			mode: "nearest",
-			intersect: false
+			mode: "index",
+			intersect: false,
+			callbacks: {
+				afterBody: function(tooltipItems, data) {
+					console.log(tooltipItems);
+					console.log(data);
+					
+					let index = tooltipItems[0].index
+					let symbolValues = backtestResult.modelValues[index];
+					
+					return symbolValues;
+				},
+				label: function(tooltipItems, data) {
+					var label = data.datasets[tooltipItems.datasetIndex].label + ": $"
+					value = Math.round(data.datasets[tooltipItems.datasetIndex].data[tooltipItems.index].y * 100) / 100;
+					label += numberWithCommas(value);
+                    return label;
+				},
+				title: function(tooltipItems, data) {
+					var label = new Date(tooltipItems[0].label).toDateString();
+					return label;
+				}
+			}
 		},
 		animation: {
 			duration: 0 // general animation time
@@ -75,6 +96,10 @@ functions defined here
 */
 function onlyUnique(value, index, self) {
   return self.indexOf(value) === index;
+}
+
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 //create series object to store quote and indicator data
@@ -232,6 +257,12 @@ function buildModelCharts(backtestResult) {
 	chartDataArray = addToChartDataArray(createChartData(modelSeries.model.data,modelSeries.model.dates), "Model", chartDataArray, "rgba(255, 99, 132, 0.5)");
 	chartDataArray = addToChartDataArray(createChartData(modelSeries.benchmark.data,modelSeries.benchmark.dates), "Benchmark - "+inputObj.benchmark, chartDataArray, "rgba(99, 255, 132, 0.5)");
 	return chartDataArray;
+}
+
+function copyToClipboard(string) {
+	var data = [new ClipboardItem({ "text/plain": new Blob([string], { type: "text/plain" }) })];
+	navigator.clipboard.write(data);
+	console.log("Settings copied to clipboard");
 }
 
 function updateExec() {

@@ -83,15 +83,17 @@ function getDatasOnDate(date, tickerObj, properties) {  // gets data on date, an
 	return dataRequest;
 };
 
-function rules(weights, thresholds, indicators, date, tickers) { // rule should return number of units of each symbol to hold
+function rules(weights, thresholds, indicators, date, tickers, currentIndicators = []) { // rule should return number of units of each symbol to hold
 	// rule should output bull or bear to position
-	currentIndicators = [getDataOnDate(date, indicators.momentum),
+	if (arraysEqual(currentIndicators, [])) {
+		currentIndicators = [getDataOnDate(date, indicators.momentum),
 							getDataOnDate(date, indicators.highLow),
 							getDataOnDate(date, indicators.inflation),
 							getDataOnDate(date, indicators.vix),
 							getDataOnDate(date, indicators.unemployment),
-							getDataOnDate(date, indicators.spbeta)]
-	compositeIndicator = currentIndicators.reduce((a,b,i) => weights[i] == 0 ? a+0 : a+b*weights[i], 0) / weights.reduce((a,b) => a+b, 0)
+							getDataOnDate(date, indicators.spbeta)];
+	};
+	let compositeIndicator = currentIndicators.reduce((a,b,i) => weights[i] == 0 ? a+0 : a+b*weights[i], 0) / weights.reduce((a,b) => a+b, 0)
 	let position = compositeIndicator > thresholds.superBull ? 0 :
 					compositeIndicator > thresholds.bull ? 1 :
 					compositeIndicator > thresholds.bear ? 2 :
@@ -131,18 +133,19 @@ function buildTickerPriceList(uniqueTickerList, tickerList, date, quotes) {
 	return currentTickerPriceList;
 }
 
-function backtestExec(inputObj, quotes, indicators, rules) {
-    let backtestResult = {
-        dates: [],
-        benchmarkValue: [], 
-        modelAllocation: [],
-        modelValue: [], //initialise modelValue with start_value
-        modelValues: [],
+function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [], rebuildTickerPrice = true, rebuildIndicators = true) {
+	let backtestResult = {
+		dates: [],
+		benchmarkValue: [], 
+		modelAllocation: [],
+		modelValue: [], //initialise modelValue with start_value
+		modelValues: [],
 		modelUnits: [],
 		tickerOpenPriceList: [],
-        tickerClosePriceList: [],
-        backtestProperties:{}
-    };
+		tickerClosePriceList: [],
+		backtestProperties:{}
+	};
+
 
 	//organise tickers
     backtestResult.backtestProperties.tickerList = inputObj.super_bull_instrument.split(",")
@@ -186,6 +189,10 @@ function backtestExec(inputObj, quotes, indicators, rules) {
 	currentDay = 0;
 	postMessage(["bar1",currentDay/totalDays*100]);
 	
+	if (arraysEqual(oldBacktestResult,[]) != true) {
+		oldBacktestResult.modelAllocation[1].splice(oldBacktestResult.dates.length - backtestResult.dates.length, oldBacktestResult.dates.length - 1); // implement try and default to no rebuild
+	};
+	
     // build first day results
     let currentTickerPriceList = buildTickerPriceList(backtestResult.backtestProperties.uniqueTickerList, backtestResult.backtestProperties.tickerList, backtestResult.dates[0], quotes);
     backtestResult.tickerClosePriceList.push(currentTickerPriceList);
@@ -193,8 +200,8 @@ function backtestExec(inputObj, quotes, indicators, rules) {
     let benchmark = quotes[inputObj.benchmark];
     let benchmarkUnits = inputObj.start_value / getDataOnDate(backtestResult.dates[0], benchmark, "close");
     
-    let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, backtestResult.dates[0], tickers);
-    let currentPortfolioValues = currentPortfolio.map(x => x / currentPortfolio.reduce((a, b) => a + b, 0) * inputObj.start_value); // reweight as ratio
+    let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, backtestResult.dates[0], tickers, rebuildIndicators ? [] : oldBacktestResult.modelAllocation[1][currentDay	]);
+    let currentPortfolioValues = currentPortfolio.map(x => x / currentPortfolio.reduce((a, b) => a + b, 0) * inputObj.start_value * (1 - inputObj.slippage/100)); // reweight as ratio & include slippage
     let currentPortfolioUnits = currentPortfolioValues.map((x,i) => x / currentTickerPriceList[i][1]); // calculate units based on open price
     currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
 	
@@ -212,13 +219,13 @@ function backtestExec(inputObj, quotes, indicators, rules) {
         
         backtestResult.benchmarkValue.push(benchmarkUnits * getDataOnDate(date, benchmark, "close"));
         
-        let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, date, tickers);
+        let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, date, tickers, rebuildIndicators ? [] : oldBacktestResult.modelAllocation[1][currentDay]);
 		
         if (arraysEqual(currentPortfolio,backtestResult.modelAllocation[backtestResult.modelAllocation.length - 1][0])) { // if rules suggest no change in model allocation
             currentPortfolioUnits = backtestResult.modelUnits[backtestResult.modelUnits.length - 1]; // set currentPortfolioUnits to previous period
             currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
         } else { // if rules suggest change in model allocation
-            currentPortfolioValues = currentPortfolio.map((x,i) => x / currentPortfolio.reduce((a,b) => a + b, 0) * backtestResult.modelValue[backtestResult.modelValue.length - 1]); // calculate portfolio allocation based on last period modelValue 
+            currentPortfolioValues = currentPortfolio.map((x,i) => x / currentPortfolio.reduce((a,b) => a + b, 0) * backtestResult.modelValue[backtestResult.modelValue.length - 1] * (1 - inputObj.slippage/100)); // calculate portfolio allocation based on last period modelValue & slippage
             currentPortfolioUnits = currentPortfolioValues.map((x,i) => x / currentTickerPriceList[i][1]); // calculate units based on open price
             currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
         }
@@ -227,7 +234,6 @@ function backtestExec(inputObj, quotes, indicators, rules) {
         backtestResult.modelValues.push(currentPortfolioValues);
         backtestResult.modelUnits.push(currentPortfolioUnits);
         backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
-		
 		currentDay += 1;
 		postMessage(["bar1",currentDay/totalDays*100]);
     };
@@ -239,31 +245,7 @@ onmessage = function(e) {
 	var inputObj = e.data[0];
 	var quotes = e.data[1];
 	var indicators = e.data[2];
-	console.log(inputObj);
 	var backtestResult = backtestExec(inputObj, quotes, indicators, rules);
 	postMessage(["backtestResult",backtestResult]);
 }
 
-
-/*
-bear-instruments: "GLD,XLP"
-bear-threshold: "40"
-bull-instruments: "QQQ,SPY,IJJ"
-bull-threshold: "60"
-end-date: "12/31/2020"
-high-low-sma: "1"
-inflation: "1"
-momentum: "1"
-rebalance-frequency: "999"
-s&p-beta: "1"
-safe-stock: "TLT"
-short: "VXX"
-short-threshold: "20"
-slippage: "0.1"
-start-date: "01/01/2001"
-start-value: "100000"
-super-bull-instrument: "SPXL"
-super-bull-threshold: "80"
-unemployment: "1"
-vix: "1"
-*/

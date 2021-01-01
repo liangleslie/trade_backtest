@@ -141,6 +141,7 @@ function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [
 		modelValue: [], //initialise modelValue with start_value
 		modelValues: [],
 		modelUnits: [],
+		daysInPosition: [],
 		tickerOpenPriceList: [],
 		tickerClosePriceList: [],
 		backtestProperties:{}
@@ -209,6 +210,7 @@ function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [
     backtestResult.modelValues.push(currentPortfolioValues);
     backtestResult.modelUnits.push(currentPortfolioUnits);
     backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
+	backtestResult.daysInPosition.push(0);
 	currentDay += 1;
 	postMessage(["bar1",currentDay/totalDays*100]);
 	
@@ -224,16 +226,19 @@ function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [
         if (arraysEqual(currentPortfolio,backtestResult.modelAllocation[backtestResult.modelAllocation.length - 1][0])) { // if rules suggest no change in model allocation
             currentPortfolioUnits = backtestResult.modelUnits[backtestResult.modelUnits.length - 1]; // set currentPortfolioUnits to previous period
             currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
+			currentDaysInPosition = backtestResult.daysInPosition[backtestResult.daysInPosition.length - 1] + 1;
         } else { // if rules suggest change in model allocation
             currentPortfolioValues = currentPortfolio.map((x,i) => x / currentPortfolio.reduce((a,b) => a + b, 0) * backtestResult.modelValue[backtestResult.modelValue.length - 1] * (1 - inputObj.slippage/100)); // calculate portfolio allocation based on last period modelValue & slippage
             currentPortfolioUnits = currentPortfolioValues.map((x,i) => x / currentTickerPriceList[i][1]); // calculate units based on open price
             currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
+			currentDaysInPosition = 0;
         }
 
 		backtestResult.modelAllocation.push([currentPortfolio,currentIndicators,compositeIndicator,currentPosition]);
         backtestResult.modelValues.push(currentPortfolioValues);
         backtestResult.modelUnits.push(currentPortfolioUnits);
         backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
+		backtestResult.daysInPosition.push(currentDaysInPosition);
 		currentDay += 1;
 		postMessage(["bar1",currentDay/totalDays*100]);
     };

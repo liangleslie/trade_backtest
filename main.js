@@ -33,23 +33,57 @@ var chartOptions = function(chartStartDate) {
 		tooltips: {
 			mode: "index",
 			intersect: false,
+			position: "nearest",
 			callbacks: {
-				afterBody: function(tooltipItems, data) {
-					console.log(tooltipItems);
-					console.log(data);
+				afterBody: function(tooltipItems, data) { // include model details in tooltip
+					//console.log(tooltipItems); // for debugging
+					//console.log(data); // for debugging
 					
 					let index = tooltipItems[0].index
 					let symbolValues = backtestResult.modelValues[index];
+					let symbolList = backtestResult.backtestProperties.tickerList
 					
-					return symbolValues;
+					let output = [""]
+					let position = backtestResult.modelAllocation[index][3] == 0 ? "Super Bull" :
+									backtestResult.modelAllocation[index][3] == 1 ? "Bull" :
+									backtestResult.modelAllocation[index][3] == 2 ? "Bear" :
+									backtestResult.modelAllocation[index][3] == 3 ? "Safe" :
+									backtestResult.modelAllocation[index][3] == 4 ? "Short" : "Error" ;
+					
+					//return position details
+					output.push("Current position: " + position);
+					output.push("Days in position: " + backtestResult.daysInPosition[index]);
+					output.push("");
+					
+					//return portfolio value
+					output.push("Current portfolio:");
+					for (let i = 0; i < symbolValues.length; i++) {
+						symbolValues[i] > 0 ? output.push(symbolList[i] + ": $" + numberWithCommas(Math.round(symbolValues[i] * 100)/100)) : null;
+					};
+					output.push("");
+					
+					//return ROI results
+					positionROIToDate = Math.round((backtestResult.modelValue[index] / backtestResult.modelValue[index - backtestResult.daysInPosition[index]] - 1) * 10000) / 100 ;
+					benchmarkPerformance = Math.round((backtestResult.benchmarkValue[index] / backtestResult.benchmarkValue[index - backtestResult.daysInPosition[index]] - 1) * 10000) / 100 ;
+					output.push("ROI from position to date: " + positionROIToDate + "%" );
+					output.push("Benchmark ROI: " + benchmarkPerformance + "%");
+					
+					
+					return output;
 				},
-				label: function(tooltipItems, data) {
+				labelColor: function(tooltipItems, data) {
+					return {
+						borderColor: myChart.data.datasets[tooltipItems.datasetIndex].borderColor,
+						backgroundColor: myChart.data.datasets[tooltipItems.datasetIndex].borderColor
+					}
+				},
+				label: function(tooltipItems, data) { // fix chart label output
 					var label = data.datasets[tooltipItems.datasetIndex].label + ": $"
 					value = Math.round(data.datasets[tooltipItems.datasetIndex].data[tooltipItems.index].y * 100) / 100;
 					label += numberWithCommas(value);
                     return label;
 				},
-				title: function(tooltipItems, data) {
+				title: function(tooltipItems, data) { // clean up date in chart title
 					var label = new Date(tooltipItems[0].label).toDateString();
 					return label;
 				}

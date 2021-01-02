@@ -31,6 +31,8 @@ var chartOptions = function(chartStartDate) {
 		},
 		events: ['click'],
 		tooltips: {
+			borderColor: 'rgba(255, 255, 255, 0.5)',
+			borderWidth: 1,
 			mode: "index",
 			intersect: false,
 			position: "nearest",
@@ -52,6 +54,7 @@ var chartOptions = function(chartStartDate) {
 					
 					//return position details
 					output.push("Current position: " + position);
+    				output.push("Current Model Drawdown: " + Math.round(backtestResult.modelDrawdown[index] * 10000) / 100 + "% (vs. " + Math.round(backtestResult.benchmarkDrawdown[index] * 10000) / 100 + "%)");
 					output.push("Days in position: " + backtestResult.daysInPosition[index]);
 					output.push("");
 					
@@ -67,7 +70,6 @@ var chartOptions = function(chartStartDate) {
 					benchmarkPerformance = Math.round((backtestResult.benchmarkValue[index] / backtestResult.benchmarkValue[index - backtestResult.daysInPosition[index]] - 1) * 10000) / 100 ;
 					output.push("ROI from position to date: " + positionROIToDate + "%" );
 					output.push("Benchmark ROI: " + benchmarkPerformance + "%");
-					
 					
 					return output;
 				},
@@ -98,12 +100,18 @@ var chartOptions = function(chartStartDate) {
 		responsiveAnimationDuration: 0, // animation duration after a resize
 		scales: {
 			yAxes: [{
+				gridLines: {
+				    color: 'rgba(255, 255, 255, 0.1)'
+				},
 				ticks: {
 					beginAtZero: true
 				}
 			}],
 			xAxes: [{
 				type: 'time',
+				gridLines: {
+				    color: 'rgba(255, 255, 255, 0.1)'
+				},
 				ticks: {
 					min: chartStartDate // set start date
 				},
@@ -226,6 +234,7 @@ var addToChartDataArray = function (chartData, label, chartDataArray, color) {
 
 function buildQuotes(inputObj) {
 	let quotes = {};
+	let promises = [];
 	let data_tickers = inputObj.super_bull_instrument.split(",")
 						.concat(inputObj.bull_instruments.split(","))
 						.concat(inputObj.bear_instruments.split(","))
@@ -234,8 +243,10 @@ function buildQuotes(inputObj) {
 	data_tickers.push(inputObj.benchmark);
 	data_tickers = data_tickers.filter(onlyUnique);
 	
-	/* 	temporarily disabled to use offline data
-		const cors_proxy = "https://cors-anywhere.herokuapp.com/";	for (var ticker of data_tickers) {
+	
+	/* temp block for cors_proxy
+	const cors_proxy = "https://cors-anywhere.herokuapp.com/";
+	for (var ticker of data_tickers) {
 		var url = "https://query1.finance.yahoo.com/v8/finance/chart/"+ticker+"?interval=1d&range=30y";
 		promises.push(fetch(cors_proxy+url, {headers: {origin: ""}}) // origin needed by cors_proxy
 			.then(
@@ -254,11 +265,19 @@ function buildQuotes(inputObj) {
 				}
 			)
 		)
-	}
+	};
+	quotes["CASH"] = new series (SPY.chart.result[0].timestamp.map(x => new Date((x-x%(60*60*24))*1000)), {
+		'close': Array(SPY.chart.result[0].timestamp.length).fill(1),
+		'open': Array(SPY.chart.result[0].timestamp.length).fill(1)
+	});
+	
+	return Promise.all(promises).then(resolve => quotes);
 	*/
+	
 
 	// temp block for offline json loading
 	for (let ticker of data_tickers) {
+		promises.push(new Promise(a => console.log(ticker)));
 		if (ticker === "CASH") {
 			continue;
 		}
@@ -273,14 +292,14 @@ function buildQuotes(inputObj) {
 		};
 		quotes[ticker["chart"]["result"][0]["meta"]["symbol"]] = new series(dates,dataObject);	
 	}
-
+    
 	//create CASH quote
 	quotes["CASH"] = new series (SPY.chart.result[0].timestamp.map(x => new Date((x-x%(60*60*24))*1000)), {
 		'close': Array(SPY.chart.result[0].timestamp.length).fill(1),
 		'open': Array(SPY.chart.result[0].timestamp.length).fill(1)
 	});
 	
-	return quotes;
+	return quotes; //fix promise
 };
 
 function buildModelCharts(backtestResult) {
@@ -320,6 +339,7 @@ backtestWorker.onmessage = function(e) {
 	if (e.data[0] === "backtestResult") {
 		backtestResult = e.data[1];
 		var chartDataArray = buildModelCharts(backtestResult);
+		chartContents.options = chartOptions(inputObj.start_date)
 		chartContents.data.datasets = chartDataArray;
 		myChart = new Chart(ctx, chartContents); //build chart into html
 	} else if (e.data[0] === "bar1") {

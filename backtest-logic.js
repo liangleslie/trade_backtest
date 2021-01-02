@@ -136,14 +136,17 @@ function buildTickerPriceList(uniqueTickerList, tickerList, date, quotes) {
 function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [], rebuildTickerPrice = true, rebuildIndicators = true) {
 	let backtestResult = {
 		dates: [],
-		benchmarkValue: [], 
+		benchmarkValue: [],
+		benchmarkHighestValue: [],
+		benchmarkDrawdown: [],
 		modelAllocation: [],
 		modelValue: [], //initialise modelValue with start_value
 		modelValues: [],
 		modelUnits: [],
+		modelHighestValue: [],
+		modelDrawdown: [],
 		daysInPosition: [],
-		tickerOpenPriceList: [],
-		tickerClosePriceList: [],
+		tickerPriceList: [],
 		backtestProperties:{}
 	};
 
@@ -184,61 +187,66 @@ function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [
 										"short": parseInt(inputObj["short_threshold"])/100
 	}
 	
-	// define test dates
+    //define variables outside loop
     backtestResult.dates = buildBacktestDates(backtestResult.backtestProperties.uniqueTickerList, inputObj, quotes); // build array of dates
 	totalDays = backtestResult.dates.length;
 	currentDay = 0;
 	postMessage(["bar1",currentDay/totalDays*100]);
 	
-	if (arraysEqual(oldBacktestResult,[]) != true) {
+	if (arraysEqual(oldBacktestResult,[]) != true) { //WIP
 		oldBacktestResult.modelAllocation[1].splice(oldBacktestResult.dates.length - backtestResult.dates.length, oldBacktestResult.dates.length - 1); // implement try and default to no rebuild
 	};
 	
-    // build first day results
-    let currentTickerPriceList = buildTickerPriceList(backtestResult.backtestProperties.uniqueTickerList, backtestResult.backtestProperties.tickerList, backtestResult.dates[0], quotes);
-    backtestResult.tickerClosePriceList.push(currentTickerPriceList);
-    
-    let benchmark = quotes[inputObj.benchmark];
-    let benchmarkUnits = inputObj.start_value / getDataOnDate(backtestResult.dates[0], benchmark, "close");
-    
-    let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, backtestResult.dates[0], tickers, rebuildIndicators ? [] : oldBacktestResult.modelAllocation[1][currentDay	]);
-    let currentPortfolioValues = currentPortfolio.map(x => x / currentPortfolio.reduce((a, b) => a + b, 0) * inputObj.start_value * (1 - inputObj.slippage/100)); // reweight as ratio & include slippage
-    let currentPortfolioUnits = currentPortfolioValues.map((x,i) => x / currentTickerPriceList[i][1]); // calculate units based on open price
-    currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
+	let benchmark = quotes[inputObj.benchmark];
+	let benchmarkIndex = backtestResult.backtestProperties.tickerList.findIndex(ticker => ticker == inputObj.benchmark);
 	
-    backtestResult.modelAllocation.push([currentPortfolio,currentIndicators,compositeIndicator,currentPosition]);
-    backtestResult.modelValues.push(currentPortfolioValues);
-    backtestResult.modelUnits.push(currentPortfolioUnits);
-    backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
-	backtestResult.daysInPosition.push(0);
-	currentDay += 1;
-	postMessage(["bar1",currentDay/totalDays*100]);
-	
-    // loop through results for subsequent days; SLOW 
-    for (let date of backtestResult.dates.slice(1)) {
+    // loop through results for all days; SLOW 
+    for (let date of backtestResult.dates) {
         let currentTickerPriceList = buildTickerPriceList(backtestResult.backtestProperties.uniqueTickerList, backtestResult.backtestProperties.tickerList, date, quotes);
-        backtestResult.tickerClosePriceList.push(currentTickerPriceList);
-        
-        backtestResult.benchmarkValue.push(benchmarkUnits * getDataOnDate(date, benchmark, "close"));
-        
         let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, date, tickers, rebuildIndicators ? [] : oldBacktestResult.modelAllocation[1][currentDay]);
-		
-        if (arraysEqual(currentPortfolio,backtestResult.modelAllocation[backtestResult.modelAllocation.length - 1][0])) { // if rules suggest no change in model allocation
+        
+        //set last period variables
+        if (date == backtestResult.dates[0]) { //if first day
+            var benchmarkUnits = (inputObj.start_value * (1 - inputObj.slippage/100)) / currentTickerPriceList[benchmarkIndex][1];
+            var lastPeriodValue = inputObj.start_value;
+            var lastPeriodAllocation = [[]];
+            var highestBenchmarkValue = inputObj.start_value;
+            var highestModelValue = inputObj.start_value;
+        } else { // for all other days
+            var lastPeriodValue = backtestResult.modelValue[backtestResult.modelValue.length - 1];
+            var lastPeriodAllocation = backtestResult.modelAllocation[backtestResult.modelAllocation.length - 1];
+        };
+        
+        if (arraysEqual(currentPortfolio,lastPeriodAllocation[0])) { // if rules suggest no change in model allocation
             currentPortfolioUnits = backtestResult.modelUnits[backtestResult.modelUnits.length - 1]; // set currentPortfolioUnits to previous period
             currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
 			currentDaysInPosition = backtestResult.daysInPosition[backtestResult.daysInPosition.length - 1] + 1;
         } else { // if rules suggest change in model allocation
-            currentPortfolioValues = currentPortfolio.map((x,i) => x / currentPortfolio.reduce((a,b) => a + b, 0) * backtestResult.modelValue[backtestResult.modelValue.length - 1] * (1 - inputObj.slippage/100)); // calculate portfolio allocation based on last period modelValue & slippage
+            currentPortfolioValues = currentPortfolio.map((x) => x / currentPortfolio.reduce((a,b) => a + b, 0) * lastPeriodValue * (1 - inputObj.slippage/100)); // calculate portfolio allocation based on last period modelValue & slippage
             currentPortfolioUnits = currentPortfolioValues.map((x,i) => x / currentTickerPriceList[i][1]); // calculate units based on open price
             currentPortfolioValues = currentPortfolioUnits.map((x,i) => x * currentTickerPriceList[i][0]); // recalculate portfolio values based on close price
 			currentDaysInPosition = 0;
-        }
-
+        };
+        
+        let currentBenchmarkValue = benchmarkUnits * currentTickerPriceList[benchmarkIndex][0]
+        let currentPortfolioValue = currentPortfolioValues.reduce((a,b) => a + b, 0)
+        
+        //store results in backtestResult
+        backtestResult.tickerPriceList.push(currentTickerPriceList);
 		backtestResult.modelAllocation.push([currentPortfolio,currentIndicators,compositeIndicator,currentPosition]);
         backtestResult.modelValues.push(currentPortfolioValues);
         backtestResult.modelUnits.push(currentPortfolioUnits);
-        backtestResult.modelValue.push(currentPortfolioValues.reduce((a,b) => a + b, 0));
-		backtestResult.daysInPosition.push(currentDaysInPosition);
+        backtestResult.benchmarkValue.push(currentBenchmarkValue);
+        backtestResult.modelValue.push(currentPortfolioValue);
+		
+		highestBenchmarkValue = currentBenchmarkValue > highestBenchmarkValue ? currentBenchmarkValue : highestBenchmarkValue;
+        highestModelValue = currentPortfolioValue > highestModelValue ? currentPortfolioValue : highestModelValue;
+        backtestResult.benchmarkHighestValue.push(highestBenchmarkValue);
+        backtestResult.benchmarkDrawdown.push(currentBenchmarkValue / highestBenchmarkValue - 1);
+        backtestResult.modelHighestValue.push(highestModelValue);
+        backtestResult.modelDrawdown.push(currentPortfolioValue / highestModelValue - 1)
+        
+        backtestResult.daysInPosition.push(currentDaysInPosition);
 		currentDay += 1;
 		postMessage(["bar1",currentDay/totalDays*100]);
     };

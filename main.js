@@ -4,7 +4,7 @@ Should be temporary - variables should be defined and modified from HTML
 */
 var bar1 = new ldBar("#ldBar");
 var inputObj = pullInputParams();
-var quotes = buildQuotes(inputObj);
+var quotesPromises = buildQuotes(inputObj);
 var chartStartDate = new Date(inputObj.start_date);
 
 //create indicators
@@ -244,8 +244,8 @@ function buildQuotes(inputObj) {
 	data_tickers = data_tickers.filter(onlyUnique);
 	
 	
-	/* temp block for cors_proxy
-	const cors_proxy = "https://cors-anywhere.herokuapp.com/";
+	// /* temp block for cors_proxy
+	const cors_proxy = "https://sofetch.glitch.me/"; // cors_proxy @ https://observablehq.com/@alecglassford/so-fetch
 	for (var ticker of data_tickers) {
 		var url = "https://query1.finance.yahoo.com/v8/finance/chart/"+ticker+"?interval=1d&range=30y";
 		promises.push(fetch(cors_proxy+url, {headers: {origin: ""}}) // origin needed by cors_proxy
@@ -266,16 +266,19 @@ function buildQuotes(inputObj) {
 			)
 		)
 	};
-	quotes["CASH"] = new series (SPY.chart.result[0].timestamp.map(x => new Date((x-x%(60*60*24))*1000)), {
-		'close': Array(SPY.chart.result[0].timestamp.length).fill(1),
-		'open': Array(SPY.chart.result[0].timestamp.length).fill(1)
+	Promise.all(promises).then(resolved => {
+	   quotes["CASH"] = new series (quotes.SPY.dates, {
+		'close': Array(quotes.SPY.dates.length).fill(1),
+		'open': Array(quotes.SPY.dates.length).fill(1)
+	    }); 
 	});
 	
-	return Promise.all(promises).then(resolve => quotes);
-	*/
+	return {'quotes': quotes, 'promises': promises};
+	
+	// */
 	
 
-	// temp block for offline json loading
+	/* temp block for offline json loading
 	for (let ticker of data_tickers) {
 		promises.push(new Promise(a => console.log(ticker)));
 		if (ticker === "CASH") {
@@ -300,6 +303,7 @@ function buildQuotes(inputObj) {
 	});
 	
 	return quotes; //fix promise
+	*/
 };
 
 function buildModelCharts(backtestResult) {
@@ -320,10 +324,12 @@ function copyToClipboard(string) {
 
 function updateExec() {
 	inputObj = pullInputParams();
-	quotes = buildQuotes(inputObj);
+	quotesPromises = buildQuotes(inputObj);
 	console.log(inputObj);
 	
-	backtestWorker.postMessage([inputObj, quotes, indicators]);
+    Promise.all(quotesPromises.promises).then(resolved => {
+        backtestWorker.postMessage([inputObj, quotesPromises.quotes, indicators]);
+    })
 };
 
 /*
@@ -333,7 +339,9 @@ Execution starts here
 
 // call computation as async function
 backtestWorker = new Worker('backtest-logic.js')
-backtestWorker.postMessage([inputObj, quotes, indicators]);
+Promise.all(quotesPromises.promises).then(resolved => {
+    backtestWorker.postMessage([inputObj, quotesPromises.quotes, indicators]);
+})
 
 backtestWorker.onmessage = function(e) {
 	if (e.data[0] === "backtestResult") {

@@ -149,66 +149,6 @@ function series(dates,dataObject) {
 	this.dates = dates;
 	this.firstDate = Math.min(... this.dates);
 	this.data = dataObject; //data object format {'property1':[],'property2':[],...}
-/* 	
-	this.getDataOnDate = function(date, property = "close") {  // gets data on date, and if date is non-market day, get data on last market day
-		let dataRequest;
-		if (typeof(date) == "number") {
-			try {
-				requestDate = new Date(date - date%(60*60*24*1000) + 60*60*24*1000);
-			} catch {
-				throw "Date argument is invalid number"
-			}
-		} else if (typeof(date) == "object") {
-			try {
-				requestDate = date;
-			} catch {
-				throw "Date argument is invalid date object"
-			}
-		} else if (typeof(date) == "string") {
-			try {
-				requestDate = new Date(date);
-				requestDate.setUTCHours(0,0,0,0);
-				requestDate.setDate(requestDate.getDate()+1);
-			} catch {
-				throw "Date argument is invalid date string"
-			}
-		};
-		dateIndex = this.dates.findIndex(x => x > requestDate) - 1;
-		dataRequest = this.data[property][dateIndex];
-		// console.log(date,requestDate,this.dates[dateIndex],dateIndex,dataRequest);  // for debug purposes
-		return dataRequest;
-	};
-	
-	this.getDatasOnDate = function(date, properties) {  // gets data on date, and if date is non-market day, get data on last market day
-		let dataRequest = [];
-		if (typeof(date) == "number") {
-			try {
-				requestDate = new Date(date - date%(60*60*24*1000) + 60*60*24*1000);
-			} catch {
-				throw "Date argument is invalid number"
-			}
-		} else if (typeof(date) == "object") {
-			try {
-				requestDate = date;
-			} catch {
-				throw "Date argument is invalid date object"
-			}
-		} else if (typeof(date) == "string") {
-			try {
-				requestDate = new Date(date);
-				requestDate.setUTCHours(0,0,0,0);
-				requestDate.setDate(requestDate.getDate()+1);
-			} catch {
-				throw "Date argument is invalid date string"
-			}
-		};
-		dateIndex = this.dates.findIndex(x => x > requestDate) - 1;
-		for (property of properties) {
-		    dataRequest.push(this.data[property][dateIndex]);
-		};
-		// console.log(date,requestDate,this.dates[dateIndex],dateIndex,dataRequest);  // for debug purposes
-		return dataRequest;
-	}; */
 };
 
 function createChartData(data, dates, property = "close") { // converts data into chart.js format; property refers to a key for each element of data object

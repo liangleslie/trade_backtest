@@ -8,12 +8,16 @@
 		</table>
 		<button onclick="updateExec()">Update Parameters</button>
 		<button onclick="copyToClipboard(JSON.stringify(inputObj))">Copy Settings</button>
+		<button onclick="copyToClipboard(JSON.stringify(backtestResult))">Copy Results</button>
 	</div>
 	<div class="flex-item">
 		<canvas id="myChart"></canvas>
 	</div>
 </div>
-<div id="ldBar"></div>
+<div>
+	<div id="status"></div>
+	<div id="ldBar"></div>
+</div>
 <style>
 
 </style>
@@ -23,7 +27,8 @@
 <script type="text/javascript" src="js/loading-bar/loading-bar.js"></script>
 <link rel="stylesheet" type="text/css" href="css/loading-bar.css"/>
 <script src="data/indicator.js"></script>
-<!-- <script src="data/offline-y-data.js"></script> data downloaded from yahoo live-->
+<script src="data/defaultbacktestresult.js"></script>
+<script src="data/offline-y-data.js"></script>
 <script src="backtest-logic.js"></script>
 <script src="backtest-param.js"></script>
 <script src="main.js"></script>

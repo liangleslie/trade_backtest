@@ -93,7 +93,7 @@ function rules(weights, thresholds, indicators, date, tickers, currentIndicators
 							getDataOnDate(date, indicators.unemployment),
 							getDataOnDate(date, indicators.spbeta)];
 	};
-	let compositeIndicator = currentIndicators.reduce((a,b,i) => weights[i] == 0 ? a+0 : a+b*weights[i], 0) / weights.reduce((a,b) => a+b, 0)
+	let compositeIndicator = currentIndicators.reduce((a,b,i) => b == null ? NaN : weights[i] == 0 ? a+0 : a+b*weights[i], 0) / weights.reduce((a,b) => a+b, 0) // fix for null values
 	let position = compositeIndicator > thresholds.superBull ? 0 :
 					compositeIndicator > thresholds.bull ? 1 :
 					compositeIndicator > thresholds.bear ? 2 :
@@ -133,7 +133,8 @@ function buildTickerPriceList(uniqueTickerList, tickerList, date, quotes) {
 	return currentTickerPriceList;
 }
 
-function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [], rebuildTickerPrice = true, rebuildIndicators = true) {
+function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult, rebuildTickerPrice = true, rebuildIndicators = true) {
+	console.log("Rebuild prices: " + rebuildTickerPrice, "Rebuild indicators: " + rebuildIndicators);
 	let backtestResult = {
 		dates: [],
 		benchmarkValue: [],
@@ -150,7 +151,8 @@ function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [
 		backtestProperties:{}
 	};
 
-
+	postMessage(["status","Starting backtest..."]);
+	
 	//organise tickers
     backtestResult.backtestProperties.tickerList = inputObj.super_bull_instrument.split(",")
                     .concat(inputObj.bull_instruments.split(","))
@@ -193,7 +195,8 @@ function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [
 	currentDay = 0;
 	postMessage(["bar1",currentDay/totalDays*100]);
 	
-	if (arraysEqual(oldBacktestResult,[]) != true) { //WIP
+	//align old backtest array to new period
+	if (Object.keys(oldBacktestResult).length != 0) { 
 		oldBacktestResult.modelAllocation[1].splice(oldBacktestResult.dates.length - backtestResult.dates.length, oldBacktestResult.dates.length - 1); // implement try and default to no rebuild
 	};
 	
@@ -202,8 +205,10 @@ function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [
 	
     // loop through results for all days; SLOW 
     for (let date of backtestResult.dates) {
-        let currentTickerPriceList = buildTickerPriceList(backtestResult.backtestProperties.uniqueTickerList, backtestResult.backtestProperties.tickerList, date, quotes);
-        let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, date, tickers, rebuildIndicators ? [] : oldBacktestResult.modelAllocation[1][currentDay]);
+        let currentTickerPriceList = rebuildTickerPrice ? 
+										buildTickerPriceList(backtestResult.backtestProperties.uniqueTickerList, backtestResult.backtestProperties.tickerList, date, quotes) :
+										oldBacktestResult.tickerPriceList[currentDay];
+        let [currentPortfolio,currentIndicators,compositeIndicator,currentPosition] = rules(backtestResult.backtestProperties.weights, backtestResult.backtestProperties.thresholds, indicators, date, tickers, rebuildIndicators ? [] : oldBacktestResult.modelAllocation[currentDay][1]); //use existingBacktestResults where available
         
         //set last period variables
         if (date == backtestResult.dates[0]) { //if first day
@@ -250,15 +255,19 @@ function backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult = [
 		currentDay += 1;
 		postMessage(["bar1",currentDay/totalDays*100]);
     };
+	postMessage(["status","Backtest done"]);
     console.log(backtestResult);
     return backtestResult;
 };
 
 onmessage = function(e) {
-	var inputObj = e.data[0];
-	var quotes = e.data[1];
-	var indicators = e.data[2];
-	var backtestResult = backtestExec(inputObj, quotes, indicators, rules);
+	var inputObj = e.data.inputObj;
+	var quotes = e.data.quotes;
+	var indicators = e.data.indicators;
+	var oldBacktestResult = e.data.oldBacktestResult;
+	var rebuildTickerPrice = e.data.rebuildTickerPrice;
+	var rebuildIndicators = e.data.rebuildIndicators;
+	var backtestResult = backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult, rebuildTickerPrice = rebuildTickerPrice, rebuildIndicators = rebuildIndicators);
 	postMessage(["backtestResult",backtestResult]);
 }
 

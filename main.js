@@ -330,8 +330,8 @@ Promise.all(quotesPromises.promises).then(resolved => {
 								"quotes": quotesPromises.quotes,
 								"indicators": indicators,
 								"oldBacktestResult": defaultBacktestResult,
-								"rebuildTickerPrice": false,
-								"rebuildIndicators": false
+								"rebuildTickerPrice": false,  // should do full rebuild if using yahoo data; disabled while developing
+								"rebuildIndicators": false    // should do full rebuild if using updated indicator data; disabled while developing
 								});
 	startTime = new Date().getTime()
 })

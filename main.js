@@ -4,7 +4,7 @@ Should be temporary - variables should be defined and modified from HTML
 */
 var bar1 = new ldBar("#ldBar");
 var inputObj = pullInputParams();
-var quotesPromises = buildQuotes(inputObj);
+var quotesPromises = defaultQuotesPromises;
 var chartStartDate = new Date(inputObj.start_date);
 
 //create indicators
@@ -187,17 +187,19 @@ function buildQuotes(inputObj) {
 	let promises = [];
 	[fullDataTickers, uniqueDataTickers] = uniqueTickers(inputObj);
 	
-	
-	/* temp block for cors_proxy
 	document.getElementById("status").innerHTML = "Downloading data from Yahoo..."
-	const cors_proxy = "https://sofetch.glitch.me/"; // cors_proxy @ https://observablehq.com/@alecglassford/so-fetch
-	for (var ticker of data_tickers) {
+	const cors_proxy = "https://sofetch.glitch.me/"; // cors_proxy @ https://observablehq.com/@alecglassford/so-fetch // alt @ "https://cors-anywhere.herokuapp.com/"; 
+	for (var ticker of uniqueDataTickers) {
+	    console.log("Fetching " + ticker + " from Yahoo...")
 		var url = "https://query1.finance.yahoo.com/v8/finance/chart/"+ticker+"?interval=1d&range=30y";
 		promises.push(fetch(cors_proxy+url, {headers: {origin: ""}}) // origin needed by cors_proxy
 			.then(
-				response => response.json()
+			    response => {
+			        return response.json();
+			    }
 			).then(
 				response_data => {
+				    console.log(response_data["chart"]["result"][0]["meta"]["symbol"] + "SUCCESS");
 					dates = response_data['chart']['result'][0]['timestamp'].map(x => new Date((x-x%(60*60*24))*1000));
 					dataObject = {
 						'close': response_data['chart']['result'][0]["indicators"]["quote"][0]['close'],
@@ -217,38 +219,9 @@ function buildQuotes(inputObj) {
 		'open': Array(quotes.SPY.dates.length).fill(1)
 	    }); 
 		document.getElementById("status").innerHTML = "Data download done";
-	});
+	}).then(resolved => {console.log(quotes)});
 	
 	return {'quotes': quotes, 'promises': promises};
-	
-	*/
-	
-
-	// /* temp block for offline json loading
-	for (let ticker of uniqueDataTickers) {
-		if (ticker === "CASH") {
-			continue;
-		}
-		ticker = window[ticker];
-		dates = ticker['chart']['result'][0]['timestamp'].map(x => new Date((x-x%(60*60*24))*1000));
-		dataObject = {
-			'close': ticker['chart']['result'][0]["indicators"]["quote"][0]['close'],
-			'open': ticker['chart']['result'][0]["indicators"]["quote"][0]['open'],
-			'high': ticker['chart']['result'][0]["indicators"]["quote"][0]['high'],
-			'low': ticker['chart']['result'][0]["indicators"]["quote"][0]['low'],
-			'volume': ticker['chart']['result'][0]["indicators"]["quote"][0]['volume']
-		};
-		quotes[ticker["chart"]["result"][0]["meta"]["symbol"]] = new series(dates,dataObject);	
-	}
-    
-	//create CASH quote
-	quotes["CASH"] = new series (SPY.chart.result[0].timestamp.map(x => new Date((x-x%(60*60*24))*1000)), {
-		'close': Array(SPY.chart.result[0].timestamp.length).fill(1),
-		'open': Array(SPY.chart.result[0].timestamp.length).fill(1)
-	});
-	
-	return {'quotes': quotes, 'promises': promises};
-	// */
 };
 
 function buildModelCharts(backtestResult) {
@@ -300,7 +273,7 @@ function updateExec() {
 	console.log("Update check","Rebuild quotes: " + updateCheck.rebuildQuotes, "Rebuild ticker prices: " + updateCheck.rebuildTickerPrice, "Rebuild indicators: " + updateCheck.rebuildIndicators);
 	
 	// rebuild quote?
-	if (updateCheck.rebuildQuotes = true) {
+	if (updateCheck.rebuildQuotes == true) {
 		quotesPromises = buildQuotes(inputObj);
 	};
 	

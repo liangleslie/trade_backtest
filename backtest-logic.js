@@ -267,7 +267,7 @@ onmessage = function(e) {
 	var oldBacktestResult = e.data.oldBacktestResult;
 	var rebuildTickerPrice = e.data.rebuildTickerPrice;
 	var rebuildIndicators = e.data.rebuildIndicators;
-	var backtestResult = backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult, rebuildTickerPrice = rebuildTickerPrice, rebuildIndicators = rebuildIndicators);
+	var backtestResult = backtestExec(inputObj, quotes, indicators, rules, oldBacktestResult, rebuildTickerPrice, rebuildIndicators);
 	postMessage(["backtestResult",backtestResult]);
 }
 

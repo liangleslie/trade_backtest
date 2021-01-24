@@ -199,7 +199,7 @@ function buildQuotes(inputObj) {
 			    }
 			).then(
 				response_data => {
-				    console.log(response_data["chart"]["result"][0]["meta"]["symbol"] + "SUCCESS");
+				    console.log(response_data["chart"]["result"][0]["meta"]["symbol"] + " SUCCESS");
 					dates = response_data['chart']['result'][0]['timestamp'].map(x => new Date((x-x%(60*60*24))*1000));
 					dataObject = {
 						'close': response_data['chart']['result'][0]["indicators"]["quote"][0]['close'],
@@ -219,7 +219,7 @@ function buildQuotes(inputObj) {
 		'open': Array(quotes.SPY.dates.length).fill(1)
 	    }); 
 		document.getElementById("status").innerHTML = "Data download done";
-	}).then(resolved => {console.log(quotes)});
+	})
 	
 	return {'quotes': quotes, 'promises': promises};
 };
@@ -276,6 +276,7 @@ function updateExec() {
 	if (updateCheck.rebuildQuotes == true) {
 		quotesPromises = buildQuotes(inputObj);
 	};
+
 	
 	startTime = new Date().getTime()
     Promise.all(quotesPromises.promises).then(resolved => {

@@ -3,7 +3,7 @@ Input parameter definitions
 all default inputs controlled by defaultInputObj
  */
 
-const defaultInputObj = {"super_bull_instrument":"QQQ,SPY,IJJ","bull_instruments":"QQQ,SPY,IJJ","bear_instruments":"GLD,XLP","safe_stock":"TLT,IEF","short":"TLT,IEF","super_bull_threshold":"80","bull_threshold":"60","bear_threshold":"40","short_threshold":"20","start_value":"100000","benchmark":"SPY","slippage":"0.1","rebalance_frequency":"999","start_date":"01/01/2020","end_date":"12/31/2021","momentum":"1","high-low_sma":"2","inflation":"1","vix":"2","unemployment":"1","s&p_beta":"0","rolling_cut_loss_threshold":"10", "rolling_cut_loss_size":"0", "high_low_entry":"-10", "high_low_exit":"0", "inflation_entry":"0.7", "inflation_exit":"-0.2", "unemployment_entry":"-0.1", "unemployment_exit":"0", "vix_ratio_sma":"1", "vix_threshold":"0.95", "momentum_entry_periods":"100", "momentum_exit_periods":"100"};
+const defaultInputObj = {"super_bull_instrument":"QQQ,SPY,IJJ","bull_instruments":"QQQ,SPY,IJJ","bear_instruments":"GLD,XLP","safe_stock":"TLT,IEF","short":"TLT,IEF","super_bull_threshold":"80","bull_threshold":"60","bear_threshold":"40","short_threshold":"20","start_value":"100000","benchmark":"SPY","slippage":"0.1","rebalance_frequency":"999","start_date":"01/01/2020","end_date":"12/31/2021","momentum":"1","high-low_sma":"2","inflation":"1","vix":"2","unemployment":"1","s&p_beta":"0","rolling_cut_loss_threshold":"10", "rolling_cut_loss_size":"0", "high_low_entry":"-10", "high_low_exit":"0", "inflation_entry":"0.7", "inflation_exit":"-0.2", "unemployment_entry":"-0.1", "unemployment_exit":"0", "vix_ratio_sma":"1", "vix_threshold":"0.95", "momentum_entry_periods":"120", "momentum_exit_periods":"120"};
 
 var inputObj = defaultInputObj;
 
